@@ -1,38 +1,46 @@
 // Handles fetching random text for the typing test
+const MIN_WORDS = 8;
+const MAX_ATTEMPTS = 5;
+const FORBIDDEN_PATTERN = /[_]/;
+
+const cleanText = text => text.replace(/\p{P}+$/gu, '').replace(/[\u200B-\u200D\uFEFF\u00A0]/gu, '').trim();
+const isLatin = text => /[A-Za-z]/.test(text) && !/[^\x00-\x7F]/.test(text);
+const countWords = text => text.trim().split(/\s+/).length;
+const isValidLine = line => line.trim().length > 0 && !FORBIDDEN_PATTERN.test(line) && isLatin(line);
+
+async function fetchFromAPI() {
+    const response = await fetch('https://poetrydb.org/random');
+    if (!response.ok) throw new Error('API failed');
+    
+    const [poem] = await response.json();
+    if (!poem?.lines?.length) throw new Error('Invalid poem');
+    
+    const validLines = poem.lines.filter(isValidLine);
+    if (!validLines.length) throw new Error('No valid lines');
+    
+    return cleanText(validLines[Math.floor(Math.random() * validLines.length)]);
+}
+
+async function fetchFromLocal() {
+    const response = await fetch('./js/texts.json');
+    if (!response.ok) throw new Error('Local fetch failed');
+    
+    const texts = await response.json();
+    const validTexts = texts.filter(isValidLine);
+    if (!validTexts.length) throw new Error('No valid local texts');
+    
+    return cleanText(validTexts[Math.floor(Math.random() * validTexts.length)]);
+}
+
 export async function fetchRandomText() {
-    const forbiddenPattern = /[_]/;
-    function cleanText(text) {
-        // Remove trailing punctuation and invisible characters
-        return text.replace(/\p{P}+$/gu, '').replace(/[\u200B-\u200D\uFEFF\u00A0]/gu, '').trim();
-    }
-    function isLatin(text) {
-        // Returns true if text contains at least one Latin letter and no non-Latin letters
-        return /[A-Za-z]/.test(text) && !/[^\x00-\x7F]/.test(text);
-    }
-    try {
-        // Fetch a random poem from PoetryDB
-        const apiRes = await fetch('https://poetrydb.org/random');
-        if (apiRes.ok) {
-            const data = await apiRes.json();
-            if (data && data[0] && Array.isArray(data[0].lines) && data[0].lines.length > 0) {
-                // Pick a random line from the poem, filter out lines with forbidden characters
-                const lines = data[0].lines.filter(line => line.trim().length > 0 && !forbiddenPattern.test(line) && isLatin(line));
-                const validLines = lines.filter(isLatin);
-                if (validLines.length > 0) {
-                    const chosen = validLines[Math.floor(Math.random() * validLines.length)];
-                    return cleanText(chosen);
-                }
-            }
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+        try {
+            const text = await fetchFromAPI().catch(() => fetchFromLocal());
+            if (countWords(text) >= MIN_WORDS) return text;
+        } catch (e) {
+            if (i === MAX_ATTEMPTS - 1) break;
         }
-    } catch (e) {
-        // Ignore and fallback to local
     }
-    // Fallback: fetch from local JSON
-    const localRes = await fetch('./js/texts.json');
-    if (!localRes.ok) throw new Error('Failed to load text.');
-    const texts = await localRes.json();
-    const filtered = Array.isArray(texts) ? texts.filter(line => !forbiddenPattern.test(line) && isLatin(line)) : [];
-    if (filtered.length === 0) throw new Error('No suitable texts available.');
-    const chosen = filtered[Math.floor(Math.random() * filtered.length)];
-    return cleanText(chosen);
+    
+    return "The quick brown fox jumps over the lazy dog again and again";
 }

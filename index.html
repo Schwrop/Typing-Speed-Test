@@ -14,9 +14,10 @@
             <button id="reset-btn">Reset (Esc)</button>
         </div>
         <div id="test-area">
-            <div id="display-text"></div>
             <div id="queue-texts"></div>
-            <input id="typing-input" type="text" autocomplete="off" placeholder="Start typing here..." />
+            <div id="display-text"></div>
+            <div id="previous-text"></div>
+            <input id="hidden-input" type="text" style="position: absolute; left: -9999px; opacity: 0;" autocomplete="off" />
             <div id="timer">Time: 60s</div>
             <div id="current-word"></div>
         </div>
@@ -36,7 +37,6 @@
         </div>
         <div id="error-message"></div>
     </div>
-    <script src="js/chartLoader.js"></script>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

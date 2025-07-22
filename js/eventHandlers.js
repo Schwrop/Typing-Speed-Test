@@ -1,78 +1,150 @@
 // Handles all event listeners for the typing test
-import { fetchRandomText } from './textService.js';
 import { calculateMetrics, clearMetrics } from './metricsService.js';
 import { renderText, renderCurrentWord, renderMetrics, renderQueueTexts } from './uiService.js';
 import { updateProgress } from './progressService.js';
 
+let metricsInterval = null;
+const keyPressed = {};
+
 export function setupEventHandlers(appState) {
-    const input = document.getElementById('typing-input');
-    let buttonLock = false;
-    let keyPressed = {};
+    // Update metrics continuously while typing
+    if (metricsInterval) clearInterval(metricsInterval);
+    metricsInterval = setInterval(() => {
+        if (appState.testStarted && !appState.testEnded) {
+            const allTyped = [...appState.allUserInputs, appState.userInput].join(' ');
+            const allRefs = [...appState.allReferenceTexts, appState.referenceText].join(' ');
+            const timeElapsed = appState.timer ? (appState.timer.duration - appState.timer.getTimeLeft()) : 1;
+            const metrics = calculateMetrics({typed: allTyped, reference: allRefs, timeElapsed});
+            renderMetrics(metrics);
+        }
+    }, 100);
 
-    input.addEventListener('input', async () => {
+    // Use a hidden input to capture all keystrokes properly
+    const hiddenInput = document.getElementById('hidden-input');
+    const displayText = document.getElementById('display-text');
+    
+    // Focus the hidden input and keep it focused
+    hiddenInput.focus();
+    
+    // Prevent losing focus
+    const maintainFocus = () => {
+        hiddenInput.focus();
+    };
+    
+    // Maintain focus aggressively
+    setInterval(maintainFocus, 100);
+    document.addEventListener('click', maintainFocus);
+    document.addEventListener('keydown', maintainFocus);
+    window.addEventListener('focus', maintainFocus);
+    
+    // Handle input events from the hidden field
+    hiddenInput.oninput = async () => {
         if (appState.testEnded) return;
-        if (!appState.testStarted) {
-            appState.testStarted = true;
-            appState.timer.start();
+        
+        const newValue = hiddenInput.value;
+        const oldLength = appState.userInput.length;
+        
+        // Check if text was added (typing)
+        if (newValue.length > oldLength) {
+            if (!appState.testStarted) {
+                appState.testStarted = true;
+                appState.timer.start();
+            }
+            
+            appState.userInput = newValue;
+            appState.updateUI();
+            
+            // Move to next line when current is complete
+            if (appState.userInput.length === appState.referenceText.length) {
+                await appState.nextLine();
+                hiddenInput.value = '';
+            }
         }
-        appState.userInput = input.value;
-        renderText(appState.referenceText, appState.userInput);
-        renderQueueTexts(appState.queue);
-        renderCurrentWord(appState.referenceText, appState.userInput);
-        // Complete line when last letter is written
-        if (appState.userInput.length === appState.referenceText.length) {
-            appState.allReferenceTexts.push(appState.referenceText);
-            appState.allUserInputs.push(appState.userInput);
-            await appState.fetchAndSetNewLine();
+        // Check if text was removed (backspace)
+        else if (newValue.length < oldLength) {
+            appState.userInput = newValue;
+            appState.updateUI();
         }
-        const allTyped = appState.allUserInputs.concat(appState.userInput).join(' ');
-        const allRefs = appState.allReferenceTexts.concat(appState.referenceText).join(' ');
-        const metrics = calculateMetrics({typed: allTyped, reference: allRefs, timeElapsed: 60 - appState.timer.getTimeLeft() || 1});
-        renderMetrics(metrics);
-    });
-
-    function animateButton(btn) {
-        btn.classList.add('active');
-        btn.disabled = true;
-        setTimeout(() => {
-            btn.classList.remove('active');
-            btn.disabled = false;
-            buttonLock = false;
-        }, 200);
-    }
-
-    document.addEventListener('keydown', (e) => {
-        if ((e.key === 'Enter' && (buttonLock || keyPressed[e.key])) || (e.key === 'Escape' && keyPressed[e.key])) return;
-        keyPressed[e.key] = true;
+    };
+    
+    // Handle special keys and backspace navigation
+    hiddenInput.onkeydown = async (e) => {
         if (e.key === 'Enter') {
-            buttonLock = true;
-            const btn = document.getElementById('restart-btn');
-            animateButton(btn);
-            Promise.resolve(appState.startNewTest()).finally(() => {
-                buttonLock = false;
-            });
-            input.focus();
+            e.preventDefault();
+            appState.startNewTest();
+            hiddenInput.value = '';
+            hiddenInput.focus();
+            return;
         } else if (e.key === 'Escape') {
-            const btn = document.getElementById('reset-btn');
-            animateButton(btn);
-            Promise.resolve((async () => {
-                clearMetrics();
-                updateProgress();
-                const text = await fetchRandomText();
-                await appState.resetTest(text);
-            })());
-            input.focus();
+            e.preventDefault();
+            clearMetrics();
+            await updateProgress();
+            appState.startNewTest();
+            hiddenInput.value = '';
+            hiddenInput.focus();
+            return;
+        } else if (e.key === 'Backspace') {
+            // If current input is empty and we have previous lines, go back
+            if (hiddenInput.value === '' && appState.userInput.length === 0 && appState.previousText) {
+                e.preventDefault();
+                appState.goToPreviousLine();
+                // Set the hidden input to the previous line's text minus one character (continuous backspace)
+                const prevTextMinusOne = appState.userInput.slice(0, -1);
+                appState.userInput = prevTextMinusOne;
+                hiddenInput.value = prevTextMinusOne;
+                appState.updateUI();
+                return;
+            }
+        }
+    };
+    
+    // Also add document-level handlers for Enter/Escape as backup
+    document.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            appState.startNewTest();
+            hiddenInput.value = '';
+            hiddenInput.focus();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            clearMetrics();
+            await updateProgress();
+            appState.startNewTest();
+            hiddenInput.value = '';
+            hiddenInput.focus();
         }
     });
-    document.addEventListener('keyup', (e) => {
-        keyPressed[e.key] = false;
-    });
-    document.getElementById('restart-btn').onclick = () => appState.startNewTest();
-    document.getElementById('reset-btn').onclick = async () => {
+    
+    // Prevent paste
+    hiddenInput.onpaste = (e) => {
+        e.preventDefault();
+        return false;
+    };
+    
+    // Button handlers
+    document.getElementById('restart-btn').onclick = () => {
+        appState.startNewTest();
+        hiddenInput.value = '';
+        hiddenInput.focus();
+    };
+    
+    document.getElementById('reset-btn').onclick = () => {
         clearMetrics();
         updateProgress();
-        const text = await fetchRandomText();
-        await appState.resetTest(text);
-        input.focus();
+        appState.startNewTest();
+        hiddenInput.value = '';
+        hiddenInput.focus();
     };
+    
+    // Make clicking on the display area focus the hidden input
+    displayText.onclick = () => {
+        hiddenInput.focus();
+    };
+}
+
+export function removeEventHandlers() {
+    if (metricsInterval) {
+        clearInterval(metricsInterval);
+        metricsInterval = null;
+    }
 }

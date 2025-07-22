@@ -1,62 +1,63 @@
 // Handles all DOM updates and rendering
+const $ = id => document.getElementById(id);
+
 export function renderText(reference, userInput) {
-    let html = '';
-    for (let i = 0; i < reference.length; i++) {
-        let charClass = '';
-        if (userInput[i] != null) {
-            charClass = userInput[i] === reference[i] ? 'correct-char' : 'incorrect-char';
-        }
-        if (i === userInput.length) charClass += ' current-char';
-        html += `<span class="${charClass}">${reference[i] || ''}</span>`;
+    const html = [...reference].map((char, i) => {
+        const classes = [
+            userInput[i] != null && (userInput[i] === char ? 'correct-char' : 'incorrect-char'),
+            i === userInput.length && 'current-char'
+        ].filter(Boolean).join(' ');
+        return `<span class="${classes}">${char}</span>`;
+    }).join('');
+    $('display-text').innerHTML = html;
+}
+
+export const renderQueueTexts = queue => 
+    $('queue-texts').innerHTML = queue.slice(0, 2).reverse()
+        .map((text, i) => `<span class="queue-line ${i === 0 ? 'third' : 'second'}">${text}</span>`)
+        .join('');
+
+export const renderCurrentWord = (reference, userInput) => {
+    const words = reference.split(/\s+/);
+    const wordIndex = userInput.trim().split(/\s+/).length - (userInput.endsWith(' ') ? 0 : 1);
+    $('current-word').textContent = words[wordIndex] || '';
+};
+
+export const renderTimer = seconds => $('timer').textContent = `Time: ${seconds}s`;
+
+export const renderMetrics = ({wpm, accuracy, correctChars, totalChars}) =>
+    $('metrics').innerHTML = `WPM: <b>${wpm}</b> | Accuracy: <b>${accuracy}%</b> | Correct Characters: <b>${correctChars}</b> / ${totalChars}`;
+
+export const renderError = msg => $('error-message').textContent = msg;
+export const clearError = () => $('error-message').textContent = '';
+
+export const renderLoading = isLoading => {
+    if (isLoading) {
+        $('display-text').innerHTML = '<span class="loading">Loading new text...</span>';
+        $('queue-texts').innerHTML = '';
+        $('previous-text').innerHTML = '';
     }
-    document.getElementById('display-text').innerHTML = html;
-}
+};
 
-export function renderQueueTexts(queue) {
-    const queueDiv = document.getElementById('queue-texts');
-    queueDiv.innerHTML = '';
-    if (queue[0]) {
-        queueDiv.innerHTML += `<span class="queue-line second">${queue[0]}</span>`;
+export const renderPreviousText = (reference, userInput) => {
+    if (!reference) {
+        $('previous-text').innerHTML = '';
+        return;
     }
-    if (queue[1]) {
-        queueDiv.innerHTML += `<span class="queue-line third">${queue[1]}</span>`;
-    }
-}
+    
+    const html = [...reference].map((char, i) => {
+        const classes = [
+            userInput[i] != null && (userInput[i] === char ? 'correct-char' : 'incorrect-char')
+        ].filter(Boolean).join(' ');
+        return `<span class="${classes}">${char}</span>`;
+    }).join('');
+    $('previous-text').innerHTML = html;
+};
 
-export function renderCurrentWord(reference, userInput) {
-    const refWords = reference.split(/\s+/);
-    const typedWords = userInput.trim().split(/\s+/);
-    const idx = typedWords.length - (userInput.endsWith(' ') ? 0 : 1);
-    document.getElementById('current-word').textContent = refWords[idx] || '';
-}
-
-export function renderTimer(seconds) {
-    document.getElementById('timer').textContent = `Time: ${seconds}s`;
-}
-
-export function renderMetrics({wpm, accuracy, correctChars, totalChars}) {
-    document.getElementById('metrics').innerHTML =
-        `WPM: <b>${wpm}</b> | Accuracy: <b>${accuracy}%</b> | Correct Characters: <b>${correctChars}</b> / ${totalChars}`;
-}
-
-export function renderError(msg) {
-    document.getElementById('error-message').textContent = msg;
-}
-
-export function clearError() {
-    document.getElementById('error-message').textContent = '';
-}
-
-export function renderProgressTable(metricsArr) {
-    const tbody = document.querySelector('#progress-table tbody');
-    tbody.innerHTML = '';
-    let prevWpm = 0;
-    metricsArr.forEach((m, i) => {
-        const improved = i > 0 && m.wpm > prevWpm;
-        const tr = document.createElement('tr');
-        if (improved) tr.classList.add('improved');
-        tr.innerHTML = `<td>${i+1}</td><td>${m.wpm}</td><td>${m.accuracy}</td><td>${m.correctChars ?? 0} / ${m.totalChars ?? 0}</td>`;
-        tbody.appendChild(tr);
-        prevWpm = m.wpm;
-    });
-}
+export const renderProgressTable = metrics => 
+    document.querySelector('#progress-table tbody').innerHTML = metrics.map((m, i) => 
+        `<tr ${i > 0 && m.wpm > metrics[i-1].wpm ? 'class="improved"' : ''}>
+            <td>${i+1}</td><td>${m.wpm}</td><td>${m.accuracy}</td>
+            <td>${m.correctChars ?? 0} / ${m.totalChars ?? 0}</td>
+        </tr>`
+    ).join('');
