@@ -1,8 +1,9 @@
 import { calculateMetrics, clearMetrics } from './metricsService.js';
-import { renderText, renderCurrentWord, renderMetrics, renderQueueTexts } from './uiService.js';
+import { renderMetrics } from './uiService.js';
 import { updateProgress } from './progressService.js';
 
 let metricsInterval = null;
+let focusInterval = null;
 let lastEscapeTime = 0;
 let lastEnterTime = 0;
 
@@ -13,11 +14,8 @@ class InputTracker {
     
     detectInputType(currentValue) {
         const isTyping = currentValue.length > this.previousValue.length;
-        const isBackspacing = currentValue.length < this.previousValue.length;
-        const isEmpty = currentValue === '';
-        
         this.previousValue = currentValue;
-        return { isTyping, isBackspacing, isEmpty };
+        return { isTyping, isBackspacing: !isTyping && currentValue !== this.previousValue };
     }
     
     reset() {
@@ -45,70 +43,41 @@ function startMetricsTracking(appState) {
 
 function setupKeyboardCapture(appState) {
     const hiddenInput = document.getElementById('hidden-input');
-    const displayText = document.getElementById('display-text');
-    if (!hiddenInput) {
-        console.error('Hidden input element not found');
-        return;
-    }
-    const inputTracker = new InputTracker();
-    appState.inputTracker = inputTracker;
+    if (!hiddenInput) return console.error('Hidden input element not found');
+    
+    appState.inputTracker = new InputTracker();
     ensureFocus(hiddenInput);
-    hiddenInput.oninput = async () => await handleTextInput(appState, hiddenInput, inputTracker);
-    hiddenInput.onkeydown = async (e) => await handleKeyboardShortcuts(appState, hiddenInput, e);
-    hiddenInput.onpaste = (e) => {
-        e.preventDefault();
-        return false;
-    };
-    document.addEventListener('keydown', async (e) => {
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            const now = Date.now();
-            if (now - lastEscapeTime < 500) return;
-            lastEscapeTime = now;
-            await executeReset(appState, hiddenInput);
-        }
-    });
+    
+    hiddenInput.oninput = () => handleTextInput(appState, hiddenInput);
+    hiddenInput.onkeydown = (e) => handleKeyboardShortcuts(appState, hiddenInput, e);
+    hiddenInput.onpaste = (e) => e.preventDefault();
+    
     setupButtonHandlers(appState, hiddenInput);
-    if (displayText) {
-        displayText.onclick = () => hiddenInput.focus();
-    }
+    document.getElementById('display-text')?.addEventListener('click', () => hiddenInput.focus());
 }
 
 async function handleKeyboardShortcuts(appState, hiddenInput, event) {
-    const { key } = event;
-    
-    switch (key) {
-        case 'Enter':
-            event.preventDefault();
-            const now = Date.now();
-            if (now - lastEnterTime < 500) return;
-            lastEnterTime = now;
-            await executeRestart(appState, hiddenInput);
-            break;
-            
-        case 'Backspace':
-            await handleBackspaceNavigation(appState, hiddenInput, event);
-            break;
-        // Remove Escape from here since we handle it at document level
+    if (event.key === 'Enter' && Date.now() - lastEnterTime > 500) {
+        event.preventDefault();
+        lastEnterTime = Date.now();
+        await executeRestart(appState, hiddenInput);
+    } else if (event.key === 'Escape' && Date.now() - lastEscapeTime > 500) {
+        event.preventDefault();
+        lastEscapeTime = Date.now();
+        executeReset(appState, hiddenInput);
+    } else if (event.key === 'Backspace') {
+        await handleBackspaceNavigation(appState, hiddenInput, event);
     }
 }
 
 function setupButtonHandlers(appState, hiddenInput) {
-    const restartBtn = document.getElementById('restart-btn');
-    const resetBtn = document.getElementById('reset-btn');
-    
-    if (restartBtn) {
-        restartBtn.onclick = async () => await executeRestart(appState, hiddenInput);
-    }
-    
-    if (resetBtn) {
-        resetBtn.onclick = async () => await executeReset(appState, hiddenInput);
-    }
+    document.getElementById('restart-btn')?.addEventListener('click', () => executeRestart(appState, hiddenInput));
+    document.getElementById('reset-btn')?.addEventListener('click', () => executeReset(appState, hiddenInput));
 }
 
 async function handleBackspaceNavigation(appState, hiddenInput, event) {
-    const isAtLineStart = hiddenInput.value === '' && appState.userInput === '';
-    const canNavigateBack = appState.canGoToPreviousLine();
+    const isAtLineStart = !hiddenInput.value && !appState.userInput;
+    const canNavigateBack = appState.session.canGoBack();
     
     if (isAtLineStart && canNavigateBack) {
         event.preventDefault();
@@ -121,28 +90,33 @@ async function handleBackspaceNavigation(appState, hiddenInput, event) {
     }
 }
 
-let focusInterval = null;
-
 function ensureFocus(hiddenInput) {
     const maintainFocus = () => hiddenInput.focus();
     if (focusInterval) clearInterval(focusInterval);
-    hiddenInput.focus();
+    
+    maintainFocus();
     focusInterval = setInterval(maintainFocus, 100);
     document.addEventListener('click', maintainFocus);
     window.addEventListener('focus', maintainFocus);
 }
 
-async function handleTextInput(appState, hiddenInput, inputTracker) {
+async function handleTextInput(appState, hiddenInput) {
     if (appState.testEnded) return;
+    
     const currentValue = hiddenInput.value;
+    const inputTracker = appState.inputTracker;
+    
     if (Math.abs(currentValue.length - inputTracker.previousValue.length) > 1) {
         inputTracker.previousValue = appState.userInput;
     }
-    const { isTyping, isBackspacing, isEmpty } = inputTracker.detectInputType(currentValue);
+    
+    const { isTyping } = inputTracker.detectInputType(currentValue);
+    
     if (isTyping) {
         await handleTyping(appState, hiddenInput, currentValue);
-    } else if (isBackspacing) {
-        await handleBackspace(appState, hiddenInput, currentValue, isEmpty);
+    } else {
+        appState.userInput = currentValue;
+        appState.updateUI();
     }
 }
 
@@ -151,21 +125,19 @@ async function handleTyping(appState, hiddenInput, newValue) {
         appState.testStarted = true;
         appState.timer.start();
     }
+    
     if (newValue.length > appState.referenceText.length) {
         hiddenInput.value = appState.userInput;
         return;
     }
+    
     appState.userInput = newValue;
     appState.updateUI();
+    
     if (appState.userInput.length === appState.referenceText.length) {
         await appState.nextLine();
         hiddenInput.value = '';
     }
-}
-
-async function handleBackspace(appState, hiddenInput, newValue, isEmpty) {
-    appState.userInput = newValue;
-    appState.updateUI();
 }
 
 async function executeRestart(appState, hiddenInput) {
@@ -181,12 +153,8 @@ async function executeReset(appState, hiddenInput) {
 }
 
 export function removeEventHandlers() {
-    if (metricsInterval) {
-        clearInterval(metricsInterval);
-        metricsInterval = null;
-    }
-    if (focusInterval) {
-        clearInterval(focusInterval);
-        focusInterval = null;
-    }
+    [metricsInterval, focusInterval].forEach(interval => {
+        if (interval) clearInterval(interval);
+    });
+    metricsInterval = focusInterval = null;
 }

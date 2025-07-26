@@ -1,39 +1,34 @@
 
 # Typing Speed Test
 
-A modern web app to test and improve your typing speed and accuracy. Type through continuous text passages with smooth line transitions, track your performance, and visualize your progress over time.
+A modern web app to test and improve your typing speed and accuracy. Type through continuous text passages with smooth line transitions and track your performance over time.
 
 ## Features
-- Random text selection from PoetryDB API with local JSON fallback
-- Real-time calculation of typing speed (WPM) and continuous updates
-- Accuracy and error tracking with instant feedback
-- Multi-line typing with smooth transitions and text queue preview
-- Direct typing interface with continuous text flow between lines
-- Visual charts and tables to display performance metrics
-- Responsive, intuitive, and modular UI with loading states
-- Keyboard shortcuts for quick actions and paste prevention
-- Progress tracking and improvement highlighting
-- Buffer system for lag-free line transitions
-- Previous line navigation with continuous backspace support
-- Modular codebase for easy maintenance and extension
+- Random text selection from PoetryDB API with local fallback
+- Real-time WPM calculation and accuracy tracking
+- Multi-line typing with smooth transitions and next line preview
+- Visual charts and tables for performance metrics
+- Keyboard shortcuts and paste prevention
+- Progress tracking with improvement highlighting
+- Previous line navigation with backspace support
 
 ## Technologies Used
-- HTML, CSS, JavaScript (ES6+ modules)
+- HTML, CSS, JavaScript
 - Chart.js for data visualization
 - PoetryDB API for dynamic text content
 - LocalStorage for metrics persistence
 
 ## File Structure
 ```
-index.html           # Main HTML file with multi-line text display
-style.css            # Responsive stylesheet with animations
+index.html           # Main HTML structure
+style.css            # Responsive styling
 js/
-  main.js            # Core application state and buffer management
-  eventHandlers.js   # Keyboard input handling and user interactions
-  textService.js     # API integration and text fetching with retry logic
+  main.js            # Core application state and text queue management
+  eventHandlers.js   # Keyboard input and user interactions
+  textService.js     # API integration and text fetching
   uiService.js       # DOM rendering and visual feedback
-  metricsService.js  # Real-time typing metrics calculation
-  timerService.js    # Test timer with callbacks
+  metricsService.js  # Typing metrics calculation
+  timerService.js    # Test timer functionality
   progressService.js # Performance charts and progress tracking
   texts.json         # Local fallback text passages
 ```
@@ -50,18 +45,16 @@ js/
 5. The app will open in your browser at `http://localhost:5500` or `http://127.0.0.1:5500`.
 
 ## Usage
-- Start typing the displayed text directly in the highlighted typing area (no input field needed).
-- Navigate through multiple lines with automatic progression and smooth transitions.
-- Use backspace to edit continuously across lines, including returning to previous lines.
-- View your speed, accuracy, and errors in real time with continuous WPM updates.
-- Check your progress with the provided charts and table.
-- Stats shown: **WPM**, **Accuracy (%)**, **Correct Characters** (not just letters).
+- Start typing the displayed text directly
+- Navigate through lines with automatic progression
+- Use backspace to edit across lines and return to previous lines
+- View real-time speed, accuracy, and character statistics
+- Track progress with charts and tables
 
-## Keyboard Shortcuts & Button Effects
-- **Enter**: Restart the test with a new text
-- **Esc**: Reset the test and clear your progress
-- Buttons show a highlight on hover and a strong effect when clicked
+## Keyboard Shortcuts
+- **Enter**: Restart test with new text
+- **Esc**: Reset test and clear progress
 
-## Progress & Improvement
-- Your previous attempts are shown in a table and chart.
-- If your WPM improves compared to your last attempt, the row is highlighted in green.
+## Progress Tracking
+- Previous attempts shown in table and chart
+- Improved WPM attempts highlighted in green

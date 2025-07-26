@@ -7,64 +7,58 @@ import { setupEventHandlers, removeEventHandlers } from './eventHandlers.js';
 
 class TextQueueManager {
     constructor() {
-        this.current = '';
-        this.queue = [];
-        this.buffer = '';
+        Object.assign(this, { current: '', next: '', buffer: '' });
     }
     
     async initialize() {
-        this.current = await fetchRandomText();
-        this.queue = await Promise.all([fetchRandomText(), fetchRandomText()]);
-        this.buffer = await fetchRandomText();
+        let current, next, buffer;
+        do {
+            [current, next, buffer] = await Promise.all([
+                fetchRandomText(), fetchRandomText(), fetchRandomText()
+            ]);
+        } while (current === next || current === buffer || next === buffer);
+        Object.assign(this, { current, next, buffer });
     }
     
     async advance() {
-        const nextText = this.queue.shift();
-        if (!nextText) {
-            console.warn('Queue empty, using fallback text');
-            return "The quick brown fox jumps over the lazy dog";
-        }
-        
-        this.queue.push(this.buffer);
+        const nextText = this.next || "The quick brown fox jumps over the lazy dog";
+        this.next = this.buffer;
         this.replenishBuffer();
         return nextText;
     }
     
     async replenishBuffer() {
-        try {
-            this.buffer = await fetchRandomText();
-        } catch (e) {
-            this.buffer = this.queue[0] || "The quick brown fox jumps over the lazy dog again and again";
+        let newBuffer = await fetchRandomText().catch(() => 
+            this.next || "The quick brown fox jumps over the lazy dog again and again"
+        );
+        
+        if (newBuffer === this.current || newBuffer === this.next) {
+            newBuffer = await fetchRandomText().catch(() => 
+                "The quick brown fox jumps over the lazy dog with different text"
+            );
         }
-    }
-    
-    moveCurrentToFront() {
-        this.queue.unshift(this.current);
-        if (this.queue.length > 2) {
-            this.buffer = this.queue.pop();
-        }
+        this.buffer = newBuffer;
     }
     
     reset() {
-        this.current = '';
-        this.queue = [];
-        this.buffer = '';
+        Object.assign(this, { current: '', next: '', buffer: '' });
     }
 }
 
 class TypingSession {
     constructor() {
-        this.allReferenceTexts = [];
-        this.allUserInputs = [];
-        this.previousText = '';
-        this.previousInput = '';
+        Object.assign(this, {
+            allReferenceTexts: [],
+            allUserInputs: [],
+            previousText: '',
+            previousInput: ''
+        });
     }
     
     saveCurrentLine(referenceText, userInput) {
         this.allReferenceTexts.push(referenceText);
         this.allUserInputs.push(userInput);
-        this.previousText = referenceText;
-        this.previousInput = userInput;
+        [this.previousText, this.previousInput] = [referenceText, userInput];
     }
     
     canGoBack() {
@@ -74,28 +68,26 @@ class TypingSession {
     goBack() {
         if (!this.canGoBack()) return null;
         
-        const restoredText = this.previousText;
-        const restoredInput = this.previousInput;
+        const [restoredText, restoredInput] = [this.previousText, this.previousInput];
         
         this.allReferenceTexts.pop();
         this.allUserInputs.pop();
         
-        if (this.allReferenceTexts.length > 0) {
-            this.previousText = this.allReferenceTexts[this.allReferenceTexts.length - 1];
-            this.previousInput = this.allUserInputs[this.allUserInputs.length - 1];
-        } else {
-            this.previousText = '';
-            this.previousInput = '';
-        }
+        const lastIndex = this.allReferenceTexts.length - 1;
+        [this.previousText, this.previousInput] = lastIndex >= 0 
+            ? [this.allReferenceTexts[lastIndex], this.allUserInputs[lastIndex]]
+            : ['', ''];
         
         return { text: restoredText, input: restoredInput };
     }
     
     reset() {
-        this.allReferenceTexts = [];
-        this.allUserInputs = [];
-        this.previousText = '';
-        this.previousInput = '';
+        Object.assign(this, {
+            allReferenceTexts: [],
+            allUserInputs: [],
+            previousText: '',
+            previousInput: ''
+        });
     }
 }
 
@@ -109,19 +101,14 @@ const appState = {
     session: new TypingSession(),
     
     reset() {
-        this.testStarted = false;
-        this.testEnded = false;
-        this.userInput = '';
+        Object.assign(this, { testStarted: false, testEnded: false, userInput: '' });
         this.textQueue.reset();
         this.session.reset();
-        
-        if (this.inputTracker) {
-            this.inputTracker.reset();
-        }
+        this.inputTracker?.reset();
         
         clearError();
         renderTimer(60);
-        if (this.timer) this.timer.stop();
+        this.timer?.stop();
         this.timer = new Timer(60, renderTimer, () => this.endTest());
         renderMetrics({wpm: 0, accuracy: 0, correctChars: 0, totalChars: 0});
     },
@@ -131,17 +118,17 @@ const appState = {
         try {
             await this.textQueue.initialize();
             this.referenceText = this.textQueue.current;
-            renderLoading(false);
             this.updateUI();
         } catch (e) {
-            renderLoading(false);
             renderError('Failed to load text. Try again.');
+        } finally {
+            renderLoading(false);
         }
     },
 
     updateUI() {
         renderText(this.referenceText, this.userInput);
-        renderQueueTexts(this.textQueue.queue);
+        renderQueueTexts([this.textQueue.next]);
         renderCurrentWord(this.referenceText, this.userInput);
         renderPreviousText(this.session.previousText, this.session.previousInput);
     },
@@ -155,40 +142,23 @@ const appState = {
         this.session.saveCurrentLine(this.referenceText, this.userInput);
         this.referenceText = await this.textQueue.advance();
         this.userInput = '';
-        
-        if (this.inputTracker) {
-            this.inputTracker.reset();
-        }
-        
+        this.inputTracker?.reset();
         this.updateUI();
-    },
-
-    canGoToPreviousLine() {
-        return this.session.canGoBack();
     },
 
     goToPreviousLine() {
         const restored = this.session.goBack();
         if (!restored) return;
         
-        this.textQueue.queue.unshift(this.referenceText);
-        if (this.textQueue.queue.length > 2) {
-            this.textQueue.buffer = this.textQueue.queue.pop();
-        }
-        
-        this.referenceText = restored.text;
-        this.userInput = restored.input;
-        
-        if (this.inputTracker) {
-            this.inputTracker.reset();
-        }
-        
+        this.textQueue.next = this.referenceText;
+        Object.assign(this, { referenceText: restored.text, userInput: restored.input });
+        this.inputTracker?.reset();
         this.updateUI();
     },
 
     endTest() {
         this.testEnded = true;
-        if (this.timer) this.timer.stop();
+        this.timer?.stop();
         
         const allTyped = [...this.session.allUserInputs, this.userInput].join(' ');
         const allRefs = [...this.session.allReferenceTexts, this.referenceText].join(' ');

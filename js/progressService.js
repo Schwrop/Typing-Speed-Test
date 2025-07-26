@@ -1,18 +1,13 @@
 import { renderProgressTable } from './uiService.js';
 import { getMetrics } from './metricsService.js';
 
-let chartLoaded = false;
-
 async function loadChartJs() {
-    if (window.Chart || chartLoaded) return;
+    if (window.Chart) return;
     
     return new Promise(resolve => {
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-        script.onload = () => {
-            chartLoaded = true;
-            resolve();
-        };
+        script.onload = () => resolve();
         script.onerror = () => resolve();
         document.head.appendChild(script);
     });
@@ -30,29 +25,21 @@ export async function updateProgress() {
         if (!window.Chart) return;
         
         const hasData = metrics.length > 0;
-        const labels = hasData ? metrics.map((_, i) => i + 1) : [''];
-        const wpmData = hasData ? metrics.map(m => m.wpm) : [0];
-        const accData = hasData ? metrics.map(m => m.accuracy) : [0];
+        const chartData = {
+            labels: hasData ? metrics.map((_, i) => i + 1) : [''],
+            datasets: [
+                { label: 'WPM', data: hasData ? metrics.map(m => m.wpm) : [0], borderColor: '#2d7ff9', fill: false },
+                { label: 'Accuracy', data: hasData ? metrics.map(m => m.accuracy) : [0], borderColor: '#1a7f37', fill: false }
+            ]
+        };
         
         if (window.progressChart) {
-            Object.assign(window.progressChart.data, {
-                labels,
-                datasets: [
-                    { ...window.progressChart.data.datasets[0], data: wpmData },
-                    { ...window.progressChart.data.datasets[1], data: accData }
-                ]
-            });
+            Object.assign(window.progressChart.data, chartData);
             window.progressChart.update();
         } else {
             window.progressChart = new window.Chart(canvas, {
                 type: 'line',
-                data: {
-                    labels,
-                    datasets: [
-                        { label: 'WPM', data: wpmData, borderColor: '#2d7ff9', fill: false },
-                        { label: 'Accuracy', data: accData, borderColor: '#1a7f37', fill: false }
-                    ]
-                },
+                data: chartData,
                 options: { responsive: true, plugins: { legend: { display: true } } }
             });
         }
