@@ -52,6 +52,15 @@ function setupKeyboardCapture(appState) {
     hiddenInput.onkeydown = (e) => handleKeyboardShortcuts(appState, hiddenInput, e);
     hiddenInput.onpaste = (e) => e.preventDefault();
     
+    // Fallback for Escape key at document level because otherwise it doesn't work in Chrome
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && Date.now() - lastEscapeTime > 500) {
+            e.preventDefault();
+            lastEscapeTime = Date.now();
+            executeReset(appState, hiddenInput);
+        }
+    });
+    
     setupButtonHandlers(appState, hiddenInput);
     document.getElementById('display-text')?.addEventListener('click', () => hiddenInput.focus());
 }
@@ -61,10 +70,6 @@ async function handleKeyboardShortcuts(appState, hiddenInput, event) {
         event.preventDefault();
         lastEnterTime = Date.now();
         await executeRestart(appState, hiddenInput);
-    } else if (event.key === 'Escape' && Date.now() - lastEscapeTime > 500) {
-        event.preventDefault();
-        lastEscapeTime = Date.now();
-        executeReset(appState, hiddenInput);
     } else if (event.key === 'Backspace') {
         await handleBackspaceNavigation(appState, hiddenInput, event);
     }

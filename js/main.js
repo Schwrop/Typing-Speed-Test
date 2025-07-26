@@ -21,21 +21,17 @@ class TextQueueManager {
     }
     
     async advance() {
-        const nextText = this.next || "The quick brown fox jumps over the lazy dog";
+        const nextText = this.next;
         this.next = this.buffer;
         this.replenishBuffer();
         return nextText;
     }
     
     async replenishBuffer() {
-        let newBuffer = await fetchRandomText().catch(() => 
-            this.next || "The quick brown fox jumps over the lazy dog again and again"
-        );
+        let newBuffer = await fetchRandomText().catch(() => this.next);
         
         if (newBuffer === this.current || newBuffer === this.next) {
-            newBuffer = await fetchRandomText().catch(() => 
-                "The quick brown fox jumps over the lazy dog with different text"
-            );
+            newBuffer = await fetchRandomText();
         }
         this.buffer = newBuffer;
     }
