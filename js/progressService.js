@@ -1,4 +1,3 @@
-// Handles progress table and chart rendering
 import { renderProgressTable } from './uiService.js';
 import { getMetrics } from './metricsService.js';
 
@@ -14,7 +13,7 @@ async function loadChartJs() {
             chartLoaded = true;
             resolve();
         };
-        script.onerror = () => resolve(); // Don't fail if chart can't load
+        script.onerror = () => resolve();
         document.head.appendChild(script);
     });
 }
@@ -36,7 +35,6 @@ export async function updateProgress() {
         const accData = hasData ? metrics.map(m => m.accuracy) : [0];
         
         if (window.progressChart) {
-            // Update existing chart
             Object.assign(window.progressChart.data, {
                 labels,
                 datasets: [
@@ -46,7 +44,6 @@ export async function updateProgress() {
             });
             window.progressChart.update();
         } else {
-            // Create new chart
             window.progressChart = new window.Chart(canvas, {
                 type: 'line',
                 data: {

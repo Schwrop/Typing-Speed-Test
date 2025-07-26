@@ -1,4 +1,3 @@
-// Handles timer logic for the typing test
 export class Timer {
     constructor(duration, onTick, onEnd) {
         this.duration = duration;

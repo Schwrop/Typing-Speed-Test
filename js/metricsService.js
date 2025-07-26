@@ -1,16 +1,17 @@
-// Handles metrics calculation and storage
 const STORAGE_KEY = 'typingTestMetrics';
 
 export function calculateMetrics({typed, reference, timeElapsed}) {
     let correctChars = 0;
-    let totalChars = 0;
-    for (let i = 0; i < typed.length; i++) {
+    const totalChars = typed.length;
+    
+    for (let i = 0; i < totalChars; i++) {
         if (typed[i] === reference[i]) correctChars++;
-        totalChars++;
     }
-    // WPM now based on total characters (approximate, or you can adjust logic)
-    const wpm = Math.round((correctChars / 5 / timeElapsed) * 60) || 0;
-    const accuracy = totalChars ? Math.round((correctChars / totalChars) * 100) : 0;
+    
+    const timeInMinutes = timeElapsed / 60;
+    const wpm = timeInMinutes > 0 ? Math.round((correctChars / 5) / timeInMinutes) : 0;
+    const accuracy = totalChars > 0 ? Math.round((correctChars / totalChars) * 100) : 100;
+    
     return { wpm, accuracy, correctChars, totalChars };
 }
 

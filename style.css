@@ -1,4 +1,4 @@
-/* ===== BASE STYLES ===== */
+/* Base Styles */
 body {
     font-family: 'Segoe UI', Arial, sans-serif;
     background: #f4f6fb;
@@ -11,7 +11,7 @@ h1, h2 {
     color: #2d3a4b;
 }
 
-/* ===== LAYOUT ===== */
+/* Main Container */
 .container {
     max-width: 700px;
     margin: 40px auto;
@@ -21,7 +21,7 @@ h1, h2 {
     padding: 32px 24px 24px 24px;
 }
 
-/* ===== HEADER / TITLE BAR ===== */
+/* Header */
 .title-bar {
     display: flex;
     align-items: center;
@@ -43,7 +43,7 @@ h1, h2 {
     top: 2px;
 }
 
-/* ===== BUTTONS ===== */
+/* Buttons */
 #restart-btn, 
 #reset-btn {
     background: #2d7ff9;
@@ -57,7 +57,6 @@ h1, h2 {
     transition: background 0.2s;
 }
 
-/* Restart Button */
 #restart-btn {
     background: #ffd600;
     color: #222;
@@ -72,7 +71,6 @@ h1, h2 {
     background: #ffb300;
 }
 
-/* Reset Button */
 #reset-btn {
     background: #d32f2f;
     color: #fff;
@@ -87,14 +85,14 @@ h1, h2 {
     background: #b71c1c;
 }
 
-/* ===== TYPING TEST AREA ===== */
+/* Typing Area */
 #display-text {
     font-size: 1.2rem;
     background: #f0f3fa;
     border-radius: 8px;
-    padding: 18px;
-    margin-bottom: 0;
-    min-height: 60px;
+    padding: 8px 18px;
+    margin-bottom: 4px;
+    min-height: 32px;
     letter-spacing: 1px;
     word-break: break-word;
     outline: 2px solid #2d7ff9;
@@ -105,10 +103,10 @@ h1, h2 {
     font-size: 1.1rem;
     background: #f8f9fc;
     border-radius: 8px;
-    padding: 12px 18px;
-    margin-top: 4px;
-    margin-bottom: 12px;
-    min-height: 40px;
+    padding: 8px 18px;
+    margin-top: 0;
+    margin-bottom: 4px;
+    min-height: 32px;
     letter-spacing: 1px;
     word-break: break-word;
     opacity: 0.7;
@@ -116,7 +114,7 @@ h1, h2 {
 }
 
 #queue-texts {
-    margin-bottom: 12px;
+    margin-bottom: 4px;
 }
 
 .queue-line {
@@ -140,7 +138,7 @@ h1, h2 {
     opacity: 0.3;
 }
 
-/* ===== CHARACTER STYLING ===== */
+/* Character States */
 .correct-char {
     color: #1a7f37;
     background: #e6ffe6;
@@ -155,7 +153,7 @@ h1, h2 {
     border-bottom: 2px solid #2d7ff9;
 }
 
-/* ===== UI FEEDBACK ===== */
+/* UI Elements */
 #timer {
     font-size: 1.1rem;
     color: #3a4d6a;
@@ -183,7 +181,7 @@ h1, h2 {
     animation: pulse 1.5s ease-in-out infinite;
 }
 
-/* ===== RESULTS SECTION ===== */
+/* Results */
 #results {
     margin-bottom: 12px;
     text-align: center;
@@ -199,7 +197,7 @@ h1, h2 {
     margin-bottom: 10px;
 }
 
-/* ===== PROGRESS SECTION ===== */
+/* Progress Tracking */
 #progress {
     margin-top: 0;
 }
@@ -236,7 +234,7 @@ h1, h2 {
     height: 80px;
 }
 
-/* ===== ANIMATIONS ===== */
+/* Animations */
 @keyframes pulse {
     0%, 100% { 
         opacity: 0.6; 
